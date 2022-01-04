@@ -1,19 +1,23 @@
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn import svm
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.model_selection import cross_validate, StratifiedKFold
+
 class waveAnalyzer:
     def __init__(self):
         #blocksize 24000, 48000Hz, 0.5s
         self.__soundBuffer = []
-        self.__axis = np.fft.rfftfreq(24000, d=1.0 / 48000)
+        self.__axis = np.fft.rfftfreq(48000, d=1.0 / 48000)
         self.__fftData = None
         self.__trainFFTDate = None
         #选取6kHz到22kHZ的数据，要check
         self.__minFreq = 6000
-        self.__maxFreq = 22000
+        self.__maxFreq = 24000
 
-    def devideData(self, file):
+    def devideTouchData(self, file):
         data, samplerate = sf.read(file, dtype='float32')
         i = 0
         newBuffer = []
@@ -22,18 +26,68 @@ class waveAnalyzer:
         while (i < len(data)):
             if data[i] > 0.25:
                 touchNumber = touchNumber + 1
-                newBuffer = data[i: i + 47999: 2]
+                newBuffer = data[i: i + 96000: 2]
                 soundBuffer.append(newBuffer)
-                i = i + 48000
+                i = i + 96000
             else:
                 i = i + 1
         self.__soundBuffer = soundBuffer
-        '''
-        x = np.linspace(1,len(soundBuffer[0]),len(soundBuffer[0]))
-        plt.plot(x, soundBuffer[0])
-        plt.show()
+        print(touchNumber)
+
+
+
+    def devideSlideForwardData(self, file):
+        data, samplerate = sf.read(file, dtype='float32')
+        i = 0
+        newBuffer = []
+        soundBuffer = []
+        touchNumber = 0
+        while (i < len(data)):
+            if data[i] > 0.26:
+                touchNumber = touchNumber + 1
+                newBuffer = data[i: i + 96000: 2]
+                soundBuffer.append(newBuffer)
+                i = i + 288000
+            else:
+                i = i + 1
+        self.__soundBuffer = soundBuffer
+        print(touchNumber)
+
+    def devideSlideBackData(self, file):
+        data, samplerate = sf.read(file, dtype='float32')
+        i = 0
+        newBuffer = []
+        soundBuffer = []
+        touchNumber = 0
+        while (i < len(data)):
+            if data[i] > 0.2:
+                touchNumber = touchNumber + 1
+                newBuffer = data[i: i + 96000: 2]
+                soundBuffer.append(newBuffer)
+                i = i + 288000
+            else:
+                i = i + 1
+        self.__soundBuffer = soundBuffer
         print(touchNumber)
         '''
+                x = np.linspace(1,len(data),len(data))
+                plt.plot(x, data)
+                plt.show()
+                print(touchNumber)
+        '''
+
+    def devidePinchNoneData(self, file):
+        data, samplerate = sf.read(file, dtype='float32')
+        i = 0
+        newBuffer = []
+        soundBuffer = []
+        while (i < len(data)):
+            newBuffer = data[i: i + 96000: 2]
+            soundBuffer.append(newBuffer)
+            i = i + 96000
+        self.__soundBuffer = soundBuffer
+
+
     def rfftDate(self):
         soundBuffer = self.getSoundBuffer()
         newAxis = self.getAxis()
@@ -80,43 +134,4 @@ class waveAnalyzer:
 
     def getTrainFFTData(self):
         return self.__trainFFTDate
-
-if __name__ == '__main__':
-    analyzer1 = waveAnalyzer()
-    analyzer1.devideData('1touch.wav')
-    analyzer1.rfftDate()
-    fftData1 = analyzer1.getFFTData()
-    analyzer1.setFFTData()
-    trainFFTData1 = analyzer1.getFFTData()
-    print(trainFFTData1.shape)
-
-    analyzer2 = waveAnalyzer()
-    analyzer2.devideData('2touch.wav')
-    analyzer2.rfftDate()
-    fftData2 = analyzer2.getFFTData()
-    analyzer2.setFFTData()
-    trainFFTData2 = analyzer2.getFFTData()
-    print(trainFFTData2.shape)
-
-    clf = svm.SVC(probability=True)
-    trainFFTData = np.row_stack((trainFFTData1[:13], trainFFTData2[:9]))
-    print(trainFFTData.shape)
-    lables = [1] * 13 + [2] *9
-    clf.fit(trainFFTData, lables)
-
-    test1touchData = trainFFTData1[-1]
-    test2touchData = trainFFTData2[-1]
-    test1touchLabel = clf.predict(test1touchData.reshape(1,-1))
-    test2touchLabel = clf.predict(test2touchData.reshape(1,-1))
-    test1touchProba = clf.predict_proba(test1touchData.reshape(1,-1))
-    test2touchProba = clf.predict_proba(test2touchData.reshape(1,-1))
-
-
-    print(test1touchLabel, test1touchProba)
-    print(test2touchLabel, test2touchProba)
-
-
-
-
-
 
