@@ -5,10 +5,12 @@ import seaborn as sns
 from sklearn import svm
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import cross_validate, StratifiedKFold
+import json
+from scipy.signal import find_peaks
 
 class waveAnalyzer:
     def __init__(self):
-        #blocksize 24000, 48000Hz, 0.5s
+        #blocksize 24000, 48000Hz, 1s
         self.__soundBuffer = []
         self.__axis = np.fft.rfftfreq(48000, d=1.0 / 48000)
         self.__fftData = None
@@ -17,6 +19,42 @@ class waveAnalyzer:
         self.__minFreq = 6000
         self.__maxFreq = 24000
 
+    def getTouchPeaks(self, file):
+        data, samplerate = sf.read(file, dtype='float32')
+        i = 0
+        newBuffer = []
+        soundBuffer = []
+        touchNumber = 0
+        while (i < len(data)):
+            peak,_ = find_peaks(data[i:i+192000], distance=192000)
+            if peak[0] < 9600:
+                newBuffer = data[0: 96000: 2]
+            else:
+                newBuffer = data[peak[0]-9600: peak[0]+86400: 2]
+            soundBuffer.append(newBuffer)
+            i = i + 192000
+            touchNumber = touchNumber + 1
+        print(touchNumber)
+        self.__soundBuffer = soundBuffer
+
+    def getSlidePeaks(self, file):
+        data, samplerate = sf.read(file, dtype='float32')
+        i = 0
+        newBuffer = []
+        soundBuffer = []
+        touchNumber = 0
+        while (i < len(data)):
+            peak, _ = find_peaks(data[i:i + 384000], distance=384000)
+            if peak[0] < 9600:
+                newBuffer = data[0: 96000: 2]
+            else:
+                newBuffer = data[peak[0] - 9600: peak[0] + 86400: 2]
+            soundBuffer.append(newBuffer)
+            i = i + 384000
+            touchNumber = touchNumber + 1
+        print(touchNumber)
+        self.__soundBuffer = soundBuffer
+
     def devideTouchData(self, file):
         data, samplerate = sf.read(file, dtype='float32')
         i = 0
@@ -24,17 +62,22 @@ class waveAnalyzer:
         soundBuffer = []
         touchNumber = 0
         while (i < len(data)):
-            if data[i] > 0.25:
+            if data[i] > 0.27 and i > 9600:
                 touchNumber = touchNumber + 1
-                newBuffer = data[i: i + 96000: 2]
+                newBuffer = data[i-9600: i+86400: 2]
                 soundBuffer.append(newBuffer)
-                i = i + 96000
+                i = i + 144000
             else:
                 i = i + 1
+            # if data[i] > 0.3:
+            #     touchNumber = touchNumber + 1
+            #     newBuffer = data[i-9600: i + 86400: 2]
+            #     soundBuffer.append(newBuffer)
+            #     i = i + 96000
+            # else:
+            #     i = i + 1
         self.__soundBuffer = soundBuffer
         print(touchNumber)
-
-
 
     def devideSlideForwardData(self, file):
         data, samplerate = sf.read(file, dtype='float32')
@@ -43,7 +86,7 @@ class waveAnalyzer:
         soundBuffer = []
         touchNumber = 0
         while (i < len(data)):
-            if data[i] > 0.26:
+            if data[i] > 0.26 and i > 9600:
                 touchNumber = touchNumber + 1
                 newBuffer = data[i: i + 96000: 2]
                 soundBuffer.append(newBuffer)
@@ -60,7 +103,7 @@ class waveAnalyzer:
         soundBuffer = []
         touchNumber = 0
         while (i < len(data)):
-            if data[i] > 0.2:
+            if data[i] - data[i-9600]> 0.1 and i > 9600:
                 touchNumber = touchNumber + 1
                 newBuffer = data[i: i + 96000: 2]
                 soundBuffer.append(newBuffer)
@@ -134,4 +177,9 @@ class waveAnalyzer:
 
     def getTrainFFTData(self):
         return self.__trainFFTDate
+
+    def outPutJSON(self, file):
+        trainFFTData = self.getTrainFFTData().tolist()
+        with open(file, 'w') as f:
+            json.dump(trainFFTData, f)
 
